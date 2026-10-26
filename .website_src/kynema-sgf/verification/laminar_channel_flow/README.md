@@ -20,15 +20,18 @@ The 28-run study contains 24 immersed-boundary cases and four no-IB reference
 cases. The current temporal drag limiter is named `default`, replacing the
 historical `tf1` label. `original` remains as the comparison configuration.
 
+Shared solver settings are stored in `base.inp`. The `flat-ib.inp`,
+`flat-no-ib.inp`, and `slanted.inp` geometry inputs each include it first.
+
 ## Analytical solution
 
 For channel height $H$, viscosity $\mu$, and axial body-force magnitude
-$F_\parallel$, the fully developed Poiseuille solution is
+$F$, the fully developed Poiseuille solution is
 
 $$
-u_\parallel(r) = U_{\max}\left(1 - \left(\frac{2r}{H}\right)^2\right),
+u(r) = U_{\max}\left(1 - \left(\frac{2r}{H}\right)^2\right),
 \qquad
-U_{\max} = \frac{F_\parallel H^2}{8\mu}.
+U_{\max} = \frac{F H^2}{8\mu}.
 $$
 
 The convergence metric is relative $L_\infty$ velocity error over

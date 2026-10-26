@@ -174,13 +174,19 @@ def parse_vector(value: str, key: str) -> tuple[float, float, float]:
     return values
 
 
-def parse_input_parameters(input_path: Path) -> ChannelParameters:
-    """Read the physical values needed by the analytical solution."""
+def read_input_values(
+    input_path: Path, included_paths: frozenset[Path] = frozenset()
+) -> dict[str, str]:
+    """Read an input file, resolving its ``FILE`` includes in order."""
+
+    resolved_path = input_path.resolve()
+    if resolved_path in included_paths:
+        raise AnalysisError(f"Recursive input include detected: {resolved_path}")
 
     try:
-        lines = input_path.read_text(encoding="utf-8").splitlines()
+        lines = resolved_path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError as error:
-        raise AnalysisError(f"Base input file not found: {input_path}") from error
+        raise AnalysisError(f"Input file not found: {resolved_path}") from error
 
     values: dict[str, str] = {}
     for line in lines:
@@ -188,7 +194,18 @@ def parse_input_parameters(input_path: Path) -> ChannelParameters:
         if "=" not in content:
             continue
         key, value = (part.strip() for part in content.split("=", 1))
-        values[key] = value
+        if key == "FILE":
+            include_path = resolved_path.parent / value.strip().strip('"\'')
+            values.update(read_input_values(include_path, included_paths | {resolved_path}))
+        else:
+            values[key] = value
+    return values
+
+
+def parse_input_parameters(input_path: Path) -> ChannelParameters:
+    """Read the physical values needed by the analytical solution."""
+
+    values = read_input_values(input_path)
 
     required = {
         "transport.viscosity",

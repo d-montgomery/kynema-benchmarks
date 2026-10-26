@@ -34,14 +34,13 @@ The supported matrix is deliberately small and fixed:
 | Reference | No immersed boundary | Not applicable | 32, 64, 128, 256 |
 
 This produces 28 runs: 24 immersed-boundary cases and four references. The
-current temporal drag limiter is named `default`; it replaces the historical
-`tf1` label. `original` selects the original drag limiter for comparison.
-Cell-center alignment and the historical `temp` label are not part of this
-verification case.
+current temporal drag limiter is named `default`. `original` selects the original drag limiter for comparison.
 
-The base input files are stored in [cases](cases). The flat and slanted base
-inputs use the canonical `default` limiter configuration; generated
-`original` cases override the two drag-limiter switches only.
+Shared solver settings are in [base.inp](cases/base.inp). Each geometry input
+starts by including that file: [flat-ib.inp](cases/flat-ib.inp),
+[flat-no-ib.inp](cases/flat-no-ib.inp), and [slanted.inp](cases/slanted.inp).
+The immersed-boundary inputs use the `default` drag limiter; generated
+`original` cases override only the two drag-limiter switches.
 
 ## Analytical solution
 

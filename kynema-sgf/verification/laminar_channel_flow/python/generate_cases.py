@@ -113,9 +113,9 @@ def build_case_definitions(
 
     definitions: list[CaseDefinition] = []
     base_inputs = {
-        "flat": "cases/base-flat-aligned-cf.inp",
-        "slanted": "cases/base-slanted.inp",
-        "reference": "cases/base-flat-no-ib.inp",
+        "flat": "cases/flat-ib.inp",
+        "slanted": "cases/slanted.inp",
+        "reference": "cases/flat-no-ib.inp",
     }
 
     for geometry in geometries:
