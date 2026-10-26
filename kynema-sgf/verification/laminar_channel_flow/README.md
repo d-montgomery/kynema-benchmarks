@@ -130,13 +130,10 @@ After all selected solver jobs complete, run:
 python python/analyze.py
 ```
 
-velocity component through `yt`, loads the final plot file, and fails rather
-than silently dropping incomplete cases. Analyze a subset when iterating:
 The analyzer reads `cases/manifest.json`, validates each required velocity
-component through `yt`, loads the final plot file, and fails rather than
-silently dropping incomplete cases. Analyze a subset when iterating:
-velocity component through `yt`, loads the final plot file, and fails rather
-than silently dropping incomplete cases. Analyze a subset when iterating:
+component through `yt`, and loads each case's final plot file. Cases without
+a plot file are reported and skipped, while malformed completed cases still
+stop the analysis. Analyze a subset when iterating:
 
 ```bash
 python python/analyze.py --geometries flat --limiters default

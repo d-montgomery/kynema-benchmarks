@@ -28,14 +28,18 @@ CASE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = CASE_ROOT / "cases" / "manifest.json"
 PLOT_PATTERN = re.compile(r"^plt(?:\d+)?$")
 FIELD_CANDIDATES = {
-    "x": ("velocity_x", "x_velocity", "velx", "u"),
-    "y": ("velocity_y", "y_velocity", "vely", "v"),
-    "z": ("velocity_z", "z_velocity", "velz", "w"),
+    "x": ("velocity_x", "x_velocity", "velocityx", "velx", "u"),
+    "y": ("velocity_y", "y_velocity", "velocityy", "vely", "v"),
+    "z": ("velocity_z", "z_velocity", "velocityz", "velz", "w"),
 }
 
 
 class AnalysisError(RuntimeError):
     """A validation failure that should stop the analysis."""
+
+
+class IncompleteCaseError(AnalysisError):
+    """A selected case has not produced the output required for analysis."""
 
 
 @dataclass(frozen=True)
@@ -243,13 +247,16 @@ def plot_sort_key(path: Path) -> tuple[int, str]:
 
 
 def latest_plot_file(case_directory: Path) -> Path:
-    candidates = [
-        path
-        for path in case_directory.iterdir()
-        if PLOT_PATTERN.fullmatch(path.name) and (path.is_dir() or path.is_file())
-    ]
+    try:
+        candidates = [
+            path
+            for path in case_directory.iterdir()
+            if PLOT_PATTERN.fullmatch(path.name) and (path.is_dir() or path.is_file())
+        ]
+    except FileNotFoundError as error:
+        raise IncompleteCaseError(f"Case directory not found: {case_directory}") from error
     if not candidates:
-        raise AnalysisError(
+        raise IncompleteCaseError(
             f"No AMReX plot files matching plt* were found in {case_directory}. "
             "Run the solver before analyzing this case."
         )
@@ -290,7 +297,7 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
     """Compute error metrics for the final output of one generated case."""
 
     plot_file = latest_plot_file(case_directory)
-    parameters = parse_input_parameters(case.base_input)
+    parameters = parse_input_parameters(case_directory / case.input_file)
     try:
         dataset = yt.load(str(plot_file))
     except Exception as error:  # yt raises multiple backend-specific exception classes.
@@ -477,7 +484,18 @@ def main() -> int:
 
         output_directory = (args.output_dir or manifest_path.parent / "analysis").resolve()
         output_directory.mkdir(parents=True, exist_ok=True)
-        results = [analyze_case(record, manifest_path.parent / record.name) for record in records]
+        results: list[AnalysisResult] = []
+        skipped_cases: list[str] = []
+        for record in records:
+            try:
+                results.append(analyze_case(record, manifest_path.parent / record.name))
+            except IncompleteCaseError as error:
+                print(f"warning: Skipping {record.name}: {error}", file=sys.stderr)
+                skipped_cases.append(record.name)
+
+        if not results:
+            raise AnalysisError("None of the selected cases has an AMReX plot file to analyze.")
+
         add_observed_orders(results)
         summary_path = write_summary(results, output_directory)
         print_summary(results)
@@ -493,6 +511,8 @@ def main() -> int:
                 )
         if "slanted" in selected_geometries:
             save_convergence_plot(results, "slanted", output_directory / "slanted_convergence.png")
+        if skipped_cases:
+            print(f"\nSkipped {len(skipped_cases)} incomplete case(s): {', '.join(skipped_cases)}")
         print(f"\nWrote summary: {summary_path}")
         print(f"Wrote plots to: {output_directory}")
         return 0
