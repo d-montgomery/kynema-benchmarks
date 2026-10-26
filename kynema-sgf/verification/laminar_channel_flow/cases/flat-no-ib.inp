@@ -1,5 +1,3 @@
-FILE = base.inp
-
 # Flat Poiseuille flow without an immersed boundary
 incflo.constant_density = true
 incflo.temperature = 300.0

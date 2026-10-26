@@ -9,8 +9,8 @@ time.fixed_dt = -1
 time.cfl = 0.95
 
 # Output
-time.plot_time_interval = 10
-time.checkpoint_time_interval = 100
+time.plot_time_interval = 100
+time.checkpoint_time_interval = 250
 
 # Physics
 incflo.gravity = 0.0 0.0 0.0

@@ -1,5 +1,3 @@
-FILE = base.inp
-
 # Flat Poiseuille flow with a cell-face-aligned immersed boundary
 incflo.physics = ChannelBuilder
 incflo.velocity = 0.0 0.0 0.0

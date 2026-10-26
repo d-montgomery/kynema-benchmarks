@@ -36,10 +36,11 @@ The supported matrix is deliberately small and fixed:
 This produces 28 runs: 24 immersed-boundary cases and four references. The
 current temporal drag limiter is named `default`. `original` selects the original drag limiter for comparison.
 
-Shared solver settings are in [base.inp](cases/base.inp). Each geometry input
-starts by including that file: [flat-ib.inp](cases/flat-ib.inp),
+Shared solver settings are in [base.inp](cases/base.inp), and geometry-specific
+settings are in [flat-ib.inp](cases/flat-ib.inp),
 [flat-no-ib.inp](cases/flat-no-ib.inp), and [slanted.inp](cases/slanted.inp).
-The immersed-boundary inputs use the `default` drag limiter; generated
+Each generated case explicitly includes the shared settings first and its
+geometry-specific settings second. The immersed-boundary inputs use the `default` drag limiter; generated
 `original` cases override only the two drag-limiter switches.
 
 ## Analytical solution
@@ -87,9 +88,9 @@ python python/generate_cases.py
 ```
 
 The command writes solver directories and a `manifest.json` file directly in
-`cases/`. Each directory contains `inputs.inp`, which includes its checked-in
-base input and overrides `amr.n_cell` and, where needed, the drag-limiter
-settings.
+`cases/`. Each directory contains `inputs.inp`, which includes the checked-in
+shared and geometry-specific inputs, then overrides `amr.n_cell` and, where
+needed, the drag-limiter settings.
 
 Inspect the planned matrix without writing files:
 

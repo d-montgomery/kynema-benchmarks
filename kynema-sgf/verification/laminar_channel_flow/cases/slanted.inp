@@ -1,5 +1,3 @@
-FILE = base.inp
-
 # Slanted Poiseuille flow requires a more conservative CFL number.
 time.cfl = 0.5
 
