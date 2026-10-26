@@ -1,0 +1,90 @@
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#            SIMULATION STOP            #
+#.......................................#
+time.stop_time =  500.0     # Max (simulated) time to evolve
+time.max_step  =  -1   # Max number of time steps
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#         TIME STEP COMPUTATION         #
+#.......................................#
+time.fixed_dt  =  -1           # Use this constant dt if > 0
+time.cfl       =  0.95             # CFL factor
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#            INPUT AND OUTPUT           #
+#.......................................#
+time.plot_time_interval            =  10     # Time between plot files
+time.checkpoint_time_interval      =  100    # Time between checkpoint files
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#               PHYSICS                 #
+#.......................................#
+incflo.gravity = 0.0 0.0 0.0 
+incflo.density = 1.0 # Reference density
+incflo.constant_density = true
+incflo.temperature = 300.0
+incflo.use_godunov = 1
+incflo.godunov_type = "weno"
+incflo.diffusion_type = 2
+
+transport.viscosity = 500.0
+transport.laminar_prandtl = 0.7
+transport.turbulent_prandtl = 0.3333
+transport.reference_temperature = 300.0
+
+turbulence.model = Laminar
+
+
+incflo.velocity = 100.0 0.0 0.0
+
+incflo.physics = ChannelFlow
+
+ICNS.source_terms = BodyForce
+BodyForce.magnitude = 1.600 0.0 0.0 # Force value in m/s^2
+
+ChannelFlow.re_tau = 12.25
+ChannelFlow.normal_direction = 2 # z is wall-normal
+ChannelFlow.flow_direction = 0
+ChannelFlow.perturb_velocity = false
+ChannelFlow.error_log_file = "" 
+
+# Channel configuration for flat Poiseuille flow (post processing only)
+# Note: values are parsed to determine analytical solution in post processing
+ChannelBuilder.s1.flow_speed = 100.0000
+ChannelBuilder.s1.height_start = 500.0000
+ChannelBuilder.s1.segment_start_point = 0.0 62.5 500.0
+ChannelBuilder.s1.segment_end_point = 1000.0 62.5 500.0
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#        ADAPTIVE MESH REFINEMENT       #
+#.......................................#
+amr.n_cell              = 32 4 16    # Grid cells at coarsest AMR level
+amr.max_level           = 0           # Max AMR level in hierarchy
+amr.blocking_factor     = 4
+
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#              GEOMETRY                 #
+#.......................................#
+geometry.prob_lo = 0.0 0.0 250.0
+geometry.prob_hi = 1000.0 125.0 750.0
+geometry.is_periodic = 1 1 0 
+
+# Boundary conditions
+zlo.type =   "no_slip_wall"
+zlo.density = 1.0
+zhi.type =   "no_slip_wall"
+zhi.density = 1.0
+
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#           SOLVER SETTINGS             #
+#.......................................#
+nodal_proj.mg_atol = 1.0E-8
+mac_proj.mg_atol = 1.0E-8
+
+
+#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
+#              VERBOSITY                #
+#.......................................#
+incflo.verbose = 0 # incflo_level
