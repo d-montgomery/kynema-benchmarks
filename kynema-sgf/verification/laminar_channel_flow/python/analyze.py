@@ -25,7 +25,7 @@ import yt
 
 
 CASE_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = CASE_ROOT / "generated_cases" / "manifest.json"
+DEFAULT_MANIFEST = CASE_ROOT / "cases" / "manifest.json"
 PLOT_PATTERN = re.compile(r"^plt(?:\d+)?$")
 FIELD_CANDIDATES = {
     "x": ("velocity_x", "x_velocity", "velx", "u"),

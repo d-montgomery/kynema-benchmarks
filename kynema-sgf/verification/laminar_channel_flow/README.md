@@ -86,10 +86,10 @@ Generate the complete matrix with:
 python python/generate_cases.py
 ```
 
-The command writes solver directories and a `manifest.json` file under
-`generated_cases/`. Each directory contains `inputs.inp`, which includes its
-checked-in base input and overrides `amr.n_cell` and, where needed, the drag
-limiter settings.
+The command writes solver directories and a `manifest.json` file directly in
+`cases/`. Each directory contains `inputs.inp`, which includes its checked-in
+base input and overrides `amr.n_cell` and, where needed, the drag-limiter
+settings.
 
 Inspect the planned matrix without writing files:
 
@@ -113,7 +113,7 @@ Run the Kynema-SGF executable from every generated case directory with its
 `inputs.inp` file. For example, after generating the full matrix:
 
 ```bash
-cd generated_cases/flat-default-n128
+cd cases/flat-default-n128
 kynema-sgf inputs.inp
 ```
 
@@ -129,7 +129,11 @@ After all selected solver jobs complete, run:
 python python/analyze.py
 ```
 
-The analyzer reads `generated_cases/manifest.json`, validates each required
+velocity component through `yt`, loads the final plot file, and fails rather
+than silently dropping incomplete cases. Analyze a subset when iterating:
+The analyzer reads `cases/manifest.json`, validates each required velocity
+component through `yt`, loads the final plot file, and fails rather than
+silently dropping incomplete cases. Analyze a subset when iterating:
 velocity component through `yt`, loads the final plot file, and fails rather
 than silently dropping incomplete cases. Analyze a subset when iterating:
 
@@ -139,7 +143,7 @@ python python/analyze.py --geometries flat --limiters default
 
 ## Outputs
 
-Analysis results are written to `generated_cases/analysis/` by default:
+Analysis results are written to `cases/analysis/` by default:
 
 - `error_summary.csv` contains the case metadata, selected plot file, sampled
   cell count, absolute and relative $L_\infty$ error, and observed order.

@@ -46,7 +46,7 @@ complete case matrix with:
 python python/generate_cases.py
 ```
 
-The generator writes solver directories and a manifest below `generated_cases/`.
+The generator writes solver directories and a manifest directly in `cases/`.
 It supports dry runs and narrow geometry, limiter, and resolution selections.
 
 ## Run and analyze
@@ -60,4 +60,4 @@ python python/analyze.py
 
 The analyzer validates required velocity fields through `yt`, writes a CSV
 summary, reports refinement orders, and creates flat, slanted, and no-IB
-reference convergence figures in `generated_cases/analysis/`.
+reference convergence figures in `cases/analysis/`.

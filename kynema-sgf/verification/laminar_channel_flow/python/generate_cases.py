@@ -18,7 +18,7 @@ from typing import Iterable
 
 
 CASE_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT_DIR = CASE_ROOT / "generated_cases"
+DEFAULT_OUTPUT_DIR = CASE_ROOT / "cases"
 IB_RESOLUTIONS = (32, 64, 128, 256, 512, 1024)
 REFERENCE_RESOLUTIONS = (32, 64, 128, 256)
 IB_GEOMETRIES = ("flat", "slanted")
@@ -121,7 +121,7 @@ def build_case_definitions(
     for geometry in geometries:
         if geometry == "reference":
             for resolution in REFERENCE_RESOLUTIONS:
-                name = f"reference-no-ib-n{resolution}"
+                name = f"flat-no-ib-n{resolution}"
                 definitions.append(
                     CaseDefinition(
                         name=name,
