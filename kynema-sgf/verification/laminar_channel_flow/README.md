@@ -34,14 +34,15 @@ The supported matrix is deliberately small and fixed:
 | Reference | No immersed boundary | Not applicable | 32, 64, 128, 256 |
 
 This produces 28 runs: 24 immersed-boundary cases and four references. The
-current temporal drag limiter is named `default`. `original` selects the original drag limiter for comparison.
+`default` configuration disables both drag limiters. `original` enables only
+the original drag limiter for comparison.
 
 Shared solver settings are in [base.inp](cases/base.inp), and geometry-specific
 settings are in [flat-ib.inp](cases/flat-ib.inp),
 [flat-no-ib.inp](cases/flat-no-ib.inp), and [slanted.inp](cases/slanted.inp).
 Each generated case explicitly includes the shared settings first and its
-geometry-specific settings second. The immersed-boundary inputs use the `default` drag limiter; generated
-`original` cases override only the two drag-limiter switches.
+geometry-specific settings second. Generated immersed-boundary cases set both
+drag-limiter switches explicitly.
 
 ## Analytical solution
 

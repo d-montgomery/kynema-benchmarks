@@ -5,9 +5,6 @@ incflo.physics = ChannelBuilder
 incflo.velocity = 0.0 0.0 0.0
 
 ICNS.source_terms = DragForcing BodyForce
-# The temporal limiter is the canonical default configuration.
-DragForcing.use_original_drag_limiter = false
-DragForcing.use_temporal_drag_limiter = true
 BodyForce.magnitude = 1.1313708498984762 0.0 1.1313708498984760
 
 # Three periodic segments at 45 degrees.

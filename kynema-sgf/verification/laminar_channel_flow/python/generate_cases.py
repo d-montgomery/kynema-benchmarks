@@ -167,9 +167,9 @@ def input_contents(case: CaseDefinition, case_directory: Path) -> str:
     if case.limiter == "default":
         lines.extend(
             (
-                "# The current temporal limiter is the canonical default configuration.",
+                "# The canonical default disables both drag limiters.",
                 "DragForcing.use_original_drag_limiter = false",
-                "DragForcing.use_temporal_drag_limiter = true",
+                "DragForcing.use_temporal_drag_limiter = false",
             )
         )
     elif case.limiter == "original":
