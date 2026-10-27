@@ -148,12 +148,13 @@ python python/analyze.py --geometries flat --limiters default
 
 Analysis results are written to `cases/analysis/` by default:
 
-- `error_summary.csv` contains the case metadata, selected plot file, sampled
+- `flat_error_summary.csv` (flat and no-IB reference cases) and
+  `slanted_error_summary.csv` contain the case metadata, selected plot file, sampled
   cell count, absolute and relative $L_\infty$ error, and observed order.
-- `flat_convergence.png` compares the two flat immersed-boundary limiters.
+- `flat_convergence.png` compares the two flat immersed-boundary limiters and
+  overlays the no-IB reference (with a slope-2 line) when reference results are
+  available.
 - `slanted_convergence.png` compares the two slanted immersed-boundary limiters.
-- `flat_convergence_with_reference.png` overlays the no-IB reference when the
-  flat and reference series are both selected.
 
 For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how

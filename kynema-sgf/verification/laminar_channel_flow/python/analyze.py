@@ -407,10 +407,24 @@ def add_observed_orders(results: Sequence[AnalysisResult]) -> None:
             ) / math.log(fine.resolution / coarse.resolution)
 
 
-def write_summary(results: Sequence[AnalysisResult], output_directory: Path) -> Path:
-    """Write stable tabular data for review and downstream plotting."""
+def write_summary(results: Sequence[AnalysisResult], output_directory: Path) -> list[Path]:
+    """Write stable tabular data for review and downstream plotting.
 
-    output_path = output_directory / "error_summary.csv"
+    The flat summary also holds the no-IB reference series, matching the flat plot.
+    """
+
+    output_paths: list[Path] = []
+    for geometry, members in (
+        ("flat", ("flat", "reference")),
+        ("slanted", ("slanted",)),
+    ):
+        subset = [result for result in results if result.geometry in members]
+        if subset:
+            output_paths.append(write_summary_file(subset, output_directory / f"{geometry}_error_summary.csv"))
+    return output_paths
+
+
+def write_summary_file(results: Sequence[AnalysisResult], output_path: Path) -> Path:
     columns = (
         "name",
         "geometry",
@@ -454,11 +468,11 @@ def print_summary(results: Sequence[AnalysisResult]) -> None:
         )
 
 
-def save_convergence_plot(
-    results: Sequence[AnalysisResult], geometry: str, output_path: Path, include_reference: bool = False
-) -> None:
+def save_convergence_plot(results: Sequence[AnalysisResult], geometry: str, output_path: Path) -> None:
     selected = [result for result in results if result.geometry == geometry]
-    if include_reference:
+    # The no-IB reference is a flat channel, so overlay it on the flat plot when available.
+    has_reference = geometry == "flat" and any(result.geometry == "reference" for result in results)
+    if has_reference:
         selected.extend(result for result in results if result.geometry == "reference")
     if not selected:
         return
@@ -468,7 +482,12 @@ def save_convergence_plot(
     for result in selected:
         label = "no-IB reference" if result.geometry == "reference" else result.limiter
         groups.setdefault(label, []).append(result)
-    for label, series in sorted(groups.items()):
+    label_order = ["original", "default", "no-IB reference"]
+    ordered_labels = sorted(
+        groups, key=lambda name: (label_order.index(name) if name in label_order else len(label_order), name)
+    )
+    for label in ordered_labels:
+        series = groups[label]
         series.sort(key=lambda item: item.cell_size)
         axis.loglog(
             [item.cell_size for item in series],
@@ -489,7 +508,10 @@ def save_convergence_plot(
             anchor_errors = errors[positive]
         anchor = float(np.exp(np.mean(np.log(anchor_errors))))
         trend = np.logspace(np.log10(cell_sizes.min()), np.log10(coarsest), 50)
-        for slope, style in ((0.5, ":"), (1.0, "-.")):
+        reference_slopes = [(0.5, ":"), (1.0, "-.")]
+        if has_reference:
+            reference_slopes.append((2.0, "--"))
+        for slope, style in reference_slopes:
             axis.loglog(
                 trend,
                 anchor * (trend / coarsest) ** slope,
@@ -500,7 +522,7 @@ def save_convergence_plot(
             )
 
     title = "Flat channel convergence" if geometry == "flat" else "Slanted channel convergence"
-    if include_reference:
+    if has_reference:
         title += " with no-IB reference"
     axis.set_title(title)
     axis.set_xlabel("Cell Size (h)")
@@ -546,23 +568,17 @@ def main() -> int:
             raise AnalysisError("None of the selected cases has an AMReX plot file to analyze.")
 
         add_observed_orders(results)
-        summary_path = write_summary(results, output_directory)
+        summary_paths = write_summary(results, output_directory)
         print_summary(results)
 
         if "flat" in selected_geometries:
             save_convergence_plot(results, "flat", output_directory / "flat_convergence.png")
-            if "reference" in selected_geometries:
-                save_convergence_plot(
-                    results,
-                    "flat",
-                    output_directory / "flat_convergence_with_reference.png",
-                    include_reference=True,
-                )
         if "slanted" in selected_geometries:
             save_convergence_plot(results, "slanted", output_directory / "slanted_convergence.png")
         if skipped_cases:
             print(f"\nSkipped {len(skipped_cases)} incomplete case(s): {', '.join(skipped_cases)}")
-        print(f"\nWrote summary: {summary_path}")
+        for summary_path in summary_paths:
+            print(f"\nWrote summary: {summary_path}")
         print(f"Wrote plots to: {output_directory}")
         return 0
     except (AnalysisError, OSError) as error:
