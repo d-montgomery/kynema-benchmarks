@@ -58,10 +58,14 @@ $$
 For a centerline with unit tangent $\boldsymbol{t}=(t_x,t_z)$, the analyzer
 projects numerical velocity onto that tangent and calculates the perpendicular
 distance using the in-plane unit normal
-$\boldsymbol{n}=(-t_z,t_x)$. Error is evaluated for
-$r < 0.6H$, which excludes artifacts from periodic companion segments in the
-slanted geometry. The reported metric is relative $L_\infty$ velocity error;
-the analyzer also reports the observed order between adjacent resolutions.
+ $\boldsymbol{n}=(-t_z,t_x)$. The analytical profile is zero outside the
+ physical channel. Flat and no-IB reference errors are evaluated in the
+ physical channel, $r \leq H/2$. Slanted-channel errors use
+ $r \leq 0.6H$ to include a small surrounding region while excluding the
+ periodic companion segments; this measures any velocity leakage there against
+ the zero analytical solution. The reported metric is relative $L_\infty$
+ velocity error; the analyzer also reports the observed order between adjacent
+ resolutions.
 
 ## Prerequisites
 

@@ -87,6 +87,7 @@ class AnalysisResult:
     geometry: str
     limiter: str
     resolution: int
+    cell_size: float
     plot_file: str
     samples: int
     absolute_linf_error: float
@@ -293,6 +294,26 @@ def as_numpy(values: Any) -> np.ndarray:
     return np.asarray(values)
 
 
+def analytical_axial_velocity(
+    radial_distance: np.ndarray, maximum_velocity: float, height: float
+) -> np.ndarray:
+    """Return the Poiseuille profile, with zero velocity outside the channel."""
+
+    profile = maximum_velocity * (1.0 - (2.0 * radial_distance / height) ** 2)
+    return np.maximum(profile, 0.0)
+
+
+def analysis_mask(case: CaseRecord, radial_distance: np.ndarray, height: float) -> np.ndarray:
+    """Select the comparison region used by the established post-processors."""
+
+    if case.geometry == "slanted":
+        # Retain the small surrounding region used for the periodic slanted
+        # channel so that velocity leakage outside the physical channel is
+        # measured against the zero analytical velocity.
+        return radial_distance <= 0.6 * height
+    return radial_distance <= 0.5 * height
+
+
 def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
     """Compute error metrics for the final output of one generated case."""
 
@@ -338,7 +359,7 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
         (x - parameters.start_point[0]) * normal_x
         + (z - parameters.start_point[2]) * normal_z
     )
-    interior_mask = radial_distance < 0.6 * parameters.height
+    interior_mask = analysis_mask(case, radial_distance, parameters.height)
     samples = int(np.count_nonzero(interior_mask))
     if samples == 0:
         raise AnalysisError(
@@ -346,7 +367,9 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
         )
 
     maximum_velocity = parameters.maximum_velocity
-    exact_axial_velocity = maximum_velocity * (1.0 - (2.0 * radial_distance / parameters.height) ** 2)
+    exact_axial_velocity = analytical_axial_velocity(
+        radial_distance, maximum_velocity, parameters.height
+    )
     simulated_axial_velocity = x_velocity * direction_x + z_velocity * direction_z
     absolute_linf_error = float(
         np.max(np.abs(simulated_axial_velocity[interior_mask] - exact_axial_velocity[interior_mask]))
@@ -356,6 +379,10 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
         geometry=case.geometry,
         limiter=case.limiter or "reference",
         resolution=case.resolution,
+        cell_size=float(
+            (dataset.domain_right_edge[0] - dataset.domain_left_edge[0]).to_value()
+            / dataset.domain_dimensions[0]
+        ),
         plot_file=str(plot_file),
         samples=samples,
         absolute_linf_error=absolute_linf_error,
@@ -442,19 +469,41 @@ def save_convergence_plot(
         label = "no-IB reference" if result.geometry == "reference" else result.limiter
         groups.setdefault(label, []).append(result)
     for label, series in sorted(groups.items()):
-        series.sort(key=lambda item: item.resolution)
+        series.sort(key=lambda item: item.cell_size)
         axis.loglog(
-            [item.resolution for item in series],
+            [item.cell_size for item in series],
             [item.relative_linf_error for item in series],
             marker="o",
             label=label,
         )
 
+    # Anchor reference slopes at the coarsest cell size, using the geometric
+    # mean of the errors there so the lines start among the plotted data.
+    cell_sizes = np.array([item.cell_size for item in selected])
+    errors = np.array([item.relative_linf_error for item in selected])
+    positive = errors > 0
+    if np.unique(cell_sizes).size > 1 and np.any(positive):
+        coarsest = cell_sizes.max()
+        anchor_errors = errors[(cell_sizes == coarsest) & positive]
+        if anchor_errors.size == 0:
+            anchor_errors = errors[positive]
+        anchor = float(np.exp(np.mean(np.log(anchor_errors))))
+        trend = np.logspace(np.log10(cell_sizes.min()), np.log10(coarsest), 50)
+        for slope, style in ((0.5, ":"), (1.0, "-.")):
+            axis.loglog(
+                trend,
+                anchor * (trend / coarsest) ** slope,
+                linestyle=style,
+                color="black",
+                linewidth=1.5,
+                label=f"Slope: {slope:g}",
+            )
+
     title = "Flat channel convergence" if geometry == "flat" else "Slanted channel convergence"
     if include_reference:
         title += " with no-IB reference"
     axis.set_title(title)
-    axis.set_xlabel(r"$N_x$")
+    axis.set_xlabel("Cell Size (h)")
     axis.set_ylabel(r"Relative $L_\infty$ velocity error")
     axis.grid(True, which="both", linestyle=":", linewidth=0.7)
     axis.legend()
