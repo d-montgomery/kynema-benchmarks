@@ -26,13 +26,14 @@ simulations provide a solver reference.
 
 The supported matrix is deliberately small and fixed:
 
-| Series | Geometry | Limiter | $N_x$ |
+| Case | Geometry | Limiter | $N_x$ |
 | --- | --- | --- | --- |
 | Flat IB | Cell-face-aligned channel | `default`, `original` | 32, 64, 128, 256, 512, 1024 |
+| Flat No IB | Flat channel w/o IB | N/A | 32, 64, 128, 256 |
 | Slanted IB | $45^\circ$ channel | `default`, `original` | 32, 64, 128, 256, 512, 1024 |
-| Flat Reference | No IB | N/A | 32, 64, 128, 256 |
 
-This produces 28 runs: 24 IB cases and four references. The
+
+This produces 28 runs: 24 IB cases and four non-IB cases for reference. The
 `default` configuration utilizes the current `DragForcing` implementation. `original` sets `DragForcing.terrain_use_original_implementation = true`.
 
 Shared solver settings are provided in `base.inp`, and geometry-specific
@@ -135,3 +136,7 @@ Analysis results are written to `cases/analysis/` by default:
 For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how
 alignment, orientation, and limiter selection affect that behavior.
+
+## Results
+![Flat-channel results](figures/flat_convergence.png)
+![Slanted-channel results](figures/slanted_convergence.png)

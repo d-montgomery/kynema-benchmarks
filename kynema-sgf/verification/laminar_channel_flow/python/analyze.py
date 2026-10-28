@@ -522,8 +522,6 @@ def save_convergence_plot(results: Sequence[AnalysisResult], geometry: str, outp
             )
 
     title = "Flat channel convergence" if geometry == "flat" else "Slanted channel convergence"
-    if has_reference:
-        title += " with no-IB reference"
     axis.set_title(title)
     axis.set_xlabel("Cell Size (h)")
     axis.set_ylabel(r"Relative $L_\infty$ velocity error")
