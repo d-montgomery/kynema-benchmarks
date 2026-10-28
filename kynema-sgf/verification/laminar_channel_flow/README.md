@@ -21,7 +21,6 @@ simulations provide a solver reference.
 - [Run the solver](#run-the-solver)
 - [Analyze convergence](#analyze-convergence)
 - [Outputs](#outputs)
-- [Troubleshooting](#troubleshooting)
 
 ## Verification matrix
 
@@ -36,9 +35,8 @@ The supported matrix is deliberately small and fixed:
 This produces 28 runs: 24 IB cases and four references. The
 `default` configuration utilizes the current `DragForcing` implementation. `original` sets `DragForcing.terrain_use_original_implementation = true`.
 
-Shared solver settings are provided in [base.inp](cases/base.inp), and geometry-specific
-settings are in [flat-ib.inp](cases/flat-ib.inp),
-[flat-no-ib.inp](cases/flat-no-ib.inp), and [slanted.inp](cases/slanted.inp).
+Shared solver settings are provided in `base.inp`, and geometry-specific
+settings are in `flat-ib.inp`, `flat-no-ib.inp`, and `slanted.inp`.
 Each generated case explicitly includes the shared settings first and its
 geometry-specific settings second. Generated immersed-boundary cases set both
 drag-limiter switches explicitly.
