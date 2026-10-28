@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import sys
@@ -169,6 +170,14 @@ def input_contents(case: CaseDefinition, case_directory: Path) -> str:
             (
                 "DragForcing.terrain_use_original_implementation = true",
                 "DragForcing.terrain_use_temporal_limiter = false",
+            )
+        )
+    if case.geometry == "slanted" and case.resolution >= 128:
+        smoothers = round(4 * (1 + math.log2(case.resolution / 128.0)))
+        lines.extend(
+            (
+                f"mac_proj.num_pre_smooth = {smoothers}",
+                f"mac_proj.num_post_smooth = {smoothers}",
             )
         )
     return "\n".join(lines) + "\n"
