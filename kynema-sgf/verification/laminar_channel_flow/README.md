@@ -8,12 +8,11 @@ cell faces and a $45^\circ$ slanted channel represented with
 `ChannelBuilder` immersed boundaries. Non-immersed-boundary channel-flow
 simulations provide a solver reference.
 
-![Flat-channel geometry](figures/flat_geometry_setup.png)
 
-![Slanted-channel geometry](figures/slanted_geometry_setup.png)
 
 ## Contents
 
+- [Channel configurations](#channel-configurations)
 - [Verification matrix](#verification-matrix)
 - [Analytical solution](#analytical-solution)
 - [Prerequisites](#prerequisites)
@@ -23,9 +22,21 @@ simulations provide a solver reference.
 - [Outputs](#outputs)
 - [Results](#results)
 
-## Verification matrix
+## Channel configurations
+In the flat channel configuration, the channel is aligned with the cell faces. This is accomplished by setting the channel position based on the coarsest mesh $(N_x, N_y, N_z) = (32, 4, 32)$. This way each consecutive refinement remains aligned with the IB.
+![Flat-channel geometry](figures/flat_geometry_setup.png)
 
-The supported matrix is deliberately small and fixed:
+In the slanted channel configuration, periodicty is maintained by defining three channels with the following start and end points for the `ChannelBuilder` segments:
+
+1. $(0, 0, 0) \rightarrow (L_x, 0, L_z)$
+1. $(-L_x/2, 0, L_z/2) \rightarrow (L_x/2, 0, 3L_z/2)$
+1. $(L_x/2, 0, -L_z/2) \rightarrow (3L_x/2, 0, L_z/2)$
+
+Channel 1 is shown in the figure below:
+
+![Slanted-channel geometry](figures/slanted_geometry_setup.png)
+
+## Verification matrix
 
 | Case | Geometry | Implementation | $N_x$ |
 | --- | --- | --- | --- |
@@ -138,7 +149,7 @@ For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how
 alignment, orientation, and implementation selection affect that behavior.
 
-## Results
+## Results from Kynema-SGF v4.2.0
 
 The default temporal implementation outperforms the original implementation for both flat and slanted channels. Both immersed-boundary implementations show $\mathcal{O}(h^{1/2})$ convergence for the flat and slanted channels, with the default implementation consistently producing lower errors. The flat channel without immersed boundaries converges at the expected $\mathcal{O}(h^2)$ rate.
 
