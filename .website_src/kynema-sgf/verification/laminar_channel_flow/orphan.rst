@@ -3,4 +3,4 @@
 .. toctree::
    :hidden:
 
-   README.md
+   README
