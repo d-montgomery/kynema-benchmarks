@@ -21,12 +21,13 @@ simulations provide a solver reference.
 - [Run the solver](#run-the-solver)
 - [Analyze convergence](#analyze-convergence)
 - [Outputs](#outputs)
+- [Results](#results)
 
 ## Verification matrix
 
 The supported matrix is deliberately small and fixed:
 
-| Case | Geometry | Limiter | $N_x$ |
+| Case | Geometry | Implementation | $N_x$ |
 | --- | --- | --- | --- |
 | Flat IB | Cell-face-aligned channel | `default`, `original` | 32, 64, 128, 256, 512, 1024 |
 | Flat No IB | Flat channel w/o IB | N/A | 32, 64, 128, 256 |
@@ -39,8 +40,7 @@ This produces 28 runs: 24 IB cases and four non-IB cases for reference. The
 Shared solver settings are provided in `base.inp`, and geometry-specific
 settings are in `flat-ib.inp`, `flat-no-ib.inp`, and `slanted.inp`.
 Each generated case explicitly includes the shared settings first and its
-geometry-specific settings second. Generated immersed-boundary cases set both
-drag-limiter switches explicitly.
+geometry-specific settings second. Generated immersed-boundary cases set `DragForcing` switches explicitly.
 
 ## Analytical solution
 
@@ -93,7 +93,7 @@ python python/generate_cases.py
 The command writes solver directories and a `manifest.json` file directly in
 `cases/`. Each directory contains `inputs.inp`, which includes the checked-in
 shared and geometry-specific inputs, then overrides `amr.n_cell` and, where
-needed, the drag-limiter settings.
+needed, the drag-implementation settings.
 
 ## Run the solver
 
@@ -128,15 +128,25 @@ Analysis results are written to `cases/analysis/` by default:
 - `flat_error_summary.csv` (flat and no-IB reference cases) and
   `slanted_error_summary.csv` contain the case metadata, selected plot file, sampled
   cell count, absolute and relative $L_\infty$ error, and observed order.
-- `flat_convergence.png` compares the two flat immersed-boundary limiters and
-  overlays the no-IB reference (with a slope-2 line) when reference results are
-  available.
-- `slanted_convergence.png` compares the two slanted immersed-boundary limiters.
+- `flat_convergence.png` compares the two flat immersed-boundary implementations and overlays the no-IB reference (with a slope-2 line) when reference results are available.
+- `slanted_convergence.png` compares the two slanted immersed-boundary implementations.
+- `slanted_<implementation>_velocity_profiles.png` shows the numerical and analytical
+  axial-velocity profiles and their error at 0.25L, 0.5L, and 0.75L along the
+  centerline, for the finest slanted case with $N_x \leq 512$.
 
 For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how
-alignment, orientation, and limiter selection affect that behavior.
+alignment, orientation, and implementation selection affect that behavior.
 
 ## Results
+
+The default temporal implementation outperforms the original implementation for both flat and slanted channels. Both immersed-boundary implementations show $\mathcal{O}(h^{1/2})$ convergence for the flat and slanted channels, with the default implementation consistently producing lower errors. The flat channel without immersed boundaries converges at the expected $\mathcal{O}(h^2)$ rate.
+
 ![Flat-channel results](figures/flat_convergence.png)
+
 ![Slanted-channel results](figures/slanted_convergence.png)
+
+The velocity profiles for the slanted channel show that the default implementation produces a more accurate representation of the analytical solution, particularly near the channel walls. The original implementation overestimates the velocity everywhere, leading to larger errors in the velocity profiles.
+
+![Slanted-channel original profile](figures/slanted_original_velocity_profiles.png)
+![Slanted-channel default profile](figures/slanted_default_velocity_profiles.png)

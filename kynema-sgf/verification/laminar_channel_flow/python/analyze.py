@@ -15,7 +15,7 @@ import json
 import math
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -27,6 +27,8 @@ import yt
 CASE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = CASE_ROOT / "cases" / "manifest.json"
 PLOT_PATTERN = re.compile(r"^plt(?:\d+)?$")
+PROFILE_RESOLUTION = 512
+PROFILE_FRACTIONS = (0.25, 0.5, 0.75)
 FIELD_CANDIDATES = {
     "x": ("velocity_x", "x_velocity", "velocityx", "velx", "u"),
     "y": ("velocity_y", "y_velocity", "velocityy", "vely", "v"),
@@ -46,7 +48,7 @@ class IncompleteCaseError(AnalysisError):
 class CaseRecord:
     name: str
     geometry: str
-    limiter: str | None
+    implementation: str | None
     resolution: int
     base_input: Path
     input_file: str
@@ -81,11 +83,21 @@ class ChannelParameters:
         return axial_forcing * self.height**2 / (8.0 * self.viscosity)
 
 
+@dataclass(frozen=True)
+class ProfileColumn:
+    """Axial-velocity profile along z at one x location on the channel centerline."""
+
+    label: str
+    z: np.ndarray
+    numerical: np.ndarray
+    analytical: np.ndarray
+
+
 @dataclass
 class AnalysisResult:
     name: str
     geometry: str
-    limiter: str
+    implementation: str
     resolution: int
     cell_size: float
     plot_file: str
@@ -93,6 +105,7 @@ class AnalysisResult:
     absolute_linf_error: float
     relative_linf_error: float
     observed_order: float | None = None
+    profiles: list[ProfileColumn] = field(default_factory=list)
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -115,7 +128,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Comma-separated subset of flat, slanted, reference (default: all).",
     )
     parser.add_argument(
-        "--limiters",
+        "--implementations",
         default="default,original",
         help="Comma-separated subset of default, original for IB cases (default: all).",
     )
@@ -152,7 +165,7 @@ def load_manifest(manifest_path: Path) -> tuple[Path, list[CaseRecord]]:
 
     case_root = Path(manifest.get("case_root", CASE_ROOT)).resolve()
     records: list[CaseRecord] = []
-    required_keys = {"name", "geometry", "limiter", "resolution", "base_input", "input_file"}
+    required_keys = {"name", "geometry", "implementation", "resolution", "base_input", "input_file"}
     for raw_case in raw_cases:
         if not isinstance(raw_case, dict) or required_keys - raw_case.keys():
             raise AnalysisError("Every manifest case must contain all generator fields.")
@@ -163,7 +176,11 @@ def load_manifest(manifest_path: Path) -> tuple[Path, list[CaseRecord]]:
             CaseRecord(
                 name=str(raw_case["name"]),
                 geometry=str(raw_case["geometry"]),
-                limiter=raw_case["limiter"] if raw_case["limiter"] is None else str(raw_case["limiter"]),
+                implementation=(
+                    raw_case["implementation"]
+                    if raw_case["implementation"] is None
+                    else str(raw_case["implementation"])
+                ),
                 resolution=int(raw_case["resolution"]),
                 base_input=base_input.resolve(),
                 input_file=str(raw_case["input_file"]),
@@ -252,13 +269,16 @@ def latest_plot_file(case_directory: Path) -> Path:
         candidates = [
             path
             for path in case_directory.iterdir()
-            if PLOT_PATTERN.fullmatch(path.name) and (path.is_dir() or path.is_file())
+            if PLOT_PATTERN.fullmatch(path.name)
+            and (path.is_dir() or path.is_file())
+            # Step-0 output is only the initial condition, not a solved state.
+            and plot_sort_key(path)[0] != 0
         ]
     except FileNotFoundError as error:
         raise IncompleteCaseError(f"Case directory not found: {case_directory}") from error
     if not candidates:
         raise IncompleteCaseError(
-            f"No AMReX plot files matching plt* were found in {case_directory}. "
+            f"No solved AMReX plot files (step > 0) matching plt* were found in {case_directory}. "
             "Run the solver before analyzing this case."
         )
     return max(candidates, key=plot_sort_key)
@@ -312,6 +332,36 @@ def analysis_mask(case: CaseRecord, radial_distance: np.ndarray, height: float) 
         # measured against the zero analytical velocity.
         return radial_distance <= 0.6 * height
     return radial_distance <= 0.5 * height
+
+
+def extract_profile_columns(
+    x: np.ndarray,
+    z: np.ndarray,
+    mask: np.ndarray,
+    simulated: np.ndarray,
+    exact: np.ndarray,
+    parameters: ChannelParameters,
+) -> list[ProfileColumn]:
+    """Sample z-profiles at fixed fractions of the centerline on the mid-y slice."""
+
+    j_mid = x.shape[1] // 2
+    x_line = x[:, j_mid, 0]
+    columns: list[ProfileColumn] = []
+    for fraction in PROFILE_FRACTIONS:
+        x_target = parameters.start_point[0] + fraction * (
+            parameters.end_point[0] - parameters.start_point[0]
+        )
+        i_location = int(np.argmin(np.abs(x_line - x_target)))
+        in_region = mask[i_location, j_mid, :]
+        columns.append(
+            ProfileColumn(
+                label=f"{fraction:.2f}L",
+                z=z[i_location, j_mid, in_region],
+                numerical=simulated[i_location, j_mid, in_region],
+                analytical=exact[i_location, j_mid, in_region],
+            )
+        )
+    return columns
 
 
 def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
@@ -374,10 +424,15 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
     absolute_linf_error = float(
         np.max(np.abs(simulated_axial_velocity[interior_mask] - exact_axial_velocity[interior_mask]))
     )
+    profiles: list[ProfileColumn] = []
+    if case.geometry == "slanted" and case.resolution <= PROFILE_RESOLUTION:
+        profiles = extract_profile_columns(
+            x, z, interior_mask, simulated_axial_velocity, exact_axial_velocity, parameters
+        )
     return AnalysisResult(
         name=case.name,
         geometry=case.geometry,
-        limiter=case.limiter or "reference",
+        implementation=case.implementation or "reference",
         resolution=case.resolution,
         cell_size=float(
             (dataset.domain_right_edge[0] - dataset.domain_left_edge[0]).to_value()
@@ -387,6 +442,7 @@ def analyze_case(case: CaseRecord, case_directory: Path) -> AnalysisResult:
         samples=samples,
         absolute_linf_error=absolute_linf_error,
         relative_linf_error=absolute_linf_error / maximum_velocity,
+        profiles=profiles,
     )
 
 
@@ -395,7 +451,7 @@ def add_observed_orders(results: Sequence[AnalysisResult]) -> None:
 
     groups: dict[tuple[str, str], list[AnalysisResult]] = {}
     for result in results:
-        groups.setdefault((result.geometry, result.limiter), []).append(result)
+        groups.setdefault((result.geometry, result.implementation), []).append(result)
     for series in groups.values():
         ordered = sorted(series, key=lambda item: item.resolution)
         for coarse, fine in zip(ordered, ordered[1:]):
@@ -428,7 +484,7 @@ def write_summary_file(results: Sequence[AnalysisResult], output_path: Path) -> 
     columns = (
         "name",
         "geometry",
-        "limiter",
+        "implementation",
         "resolution",
         "plot_file",
         "samples",
@@ -439,12 +495,14 @@ def write_summary_file(results: Sequence[AnalysisResult], output_path: Path) -> 
     with output_path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
-        for result in sorted(results, key=lambda item: (item.geometry, item.limiter, item.resolution)):
+        for result in sorted(
+            results, key=lambda item: (item.geometry, item.implementation, item.resolution)
+        ):
             writer.writerow(
                 {
                     "name": result.name,
                     "geometry": result.geometry,
-                    "limiter": result.limiter,
+                    "implementation": result.implementation,
                     "resolution": result.resolution,
                     "plot_file": result.plot_file,
                     "samples": result.samples,
@@ -458,12 +516,14 @@ def write_summary_file(results: Sequence[AnalysisResult], output_path: Path) -> 
 
 def print_summary(results: Sequence[AnalysisResult]) -> None:
     print("\nError convergence summary")
-    print("geometry   limiter    N       relative L_inf       observed order")
-    print("---------  ---------  ------  -------------------  --------------")
-    for result in sorted(results, key=lambda item: (item.geometry, item.limiter, item.resolution)):
+    print("geometry   implementation  N       relative L_inf       observed order")
+    print("---------  --------------  ------  -------------------  --------------")
+    for result in sorted(
+        results, key=lambda item: (item.geometry, item.implementation, item.resolution)
+    ):
         order = "-" if result.observed_order is None else f"{result.observed_order:.3f}"
         print(
-            f"{result.geometry:<9}  {result.limiter:<9}  {result.resolution:>6}  "
+            f"{result.geometry:<9}  {result.implementation:<14}  {result.resolution:>6}  "
             f"{result.relative_linf_error:>19.6e}  {order:>14}"
         )
 
@@ -480,7 +540,7 @@ def save_convergence_plot(results: Sequence[AnalysisResult], geometry: str, outp
     figure, axis = plt.subplots(figsize=(7, 5))
     groups: dict[str, list[AnalysisResult]] = {}
     for result in selected:
-        label = "no-IB reference" if result.geometry == "reference" else result.limiter
+        label = "no-IB reference" if result.geometry == "reference" else result.implementation
         groups.setdefault(label, []).append(result)
     label_order = ["original", "default", "no-IB reference"]
     ordered_labels = sorted(
@@ -532,6 +592,47 @@ def save_convergence_plot(results: Sequence[AnalysisResult], geometry: str, outp
     plt.close(figure)
 
 
+def save_profile_plot(result: AnalysisResult, output_path: Path) -> None:
+    """Plot axial-velocity profiles and their error at several centerline locations."""
+
+    errors = [column.numerical - column.analytical for column in result.profiles]
+    max_error = max(float(np.max(error)) for error in errors if error.size)
+    min_error = min(float(np.min(error)) for error in errors if error.size)
+    padding = 0.1 * max(abs(max_error), abs(min_error))
+    limits = (min(min_error, -abs(max_error) / 8.0) - padding, max(max_error, 0.0) + padding)
+
+    figure, axes = plt.subplots(len(result.profiles), 2, figsize=(14, 12), squeeze=False)
+    for row, (column, error) in enumerate(zip(result.profiles, errors)):
+        profile_axis, error_axis = axes[row]
+        profile_axis.plot(
+            column.analytical, column.z, "o", color="tab:red", markersize=5, label="Analytical"
+        )
+        profile_axis.plot(
+            column.numerical, column.z, "-", color="tab:blue", linewidth=3, label="Numerical"
+        )
+        profile_axis.set_xlabel("Axial Velocity (m/s)")
+        profile_axis.set_ylabel("z (m)")
+        profile_axis.set_title(f"Axial Velocity Profile at {column.label}")
+        handles, labels = profile_axis.get_legend_handles_labels()
+        profile_axis.legend(handles[::-1], labels[::-1])
+        profile_axis.grid(True, alpha=0.3)
+
+        error_axis.plot(error, column.z, "-", color="tab:green", linewidth=3)
+        error_axis.axvline(x=0, color="k", linestyle="--", alpha=0.5)
+        error_axis.set_xlabel("Error in Axial Velocity (m/s)")
+        error_axis.set_ylabel("z (m)")
+        error_axis.set_title(r"$u_r^{sim} - u_r^{exact}$ at " + column.label)
+        error_axis.set_xlim(*limits)
+        error_axis.grid(True, alpha=0.3)
+
+    figure.suptitle(
+        f"Slanted channel, {result.implementation} implementation, N = {result.resolution}"
+    )
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=150)
+    plt.close(figure)
+
+
 def main() -> int:
     parser = build_argument_parser()
     args = parser.parse_args()
@@ -539,17 +640,19 @@ def main() -> int:
         selected_geometries = parse_subset(
             args.geometries, ("flat", "slanted", "reference"), "--geometries"
         )
-        selected_limiters = parse_subset(args.limiters, ("default", "original"), "--limiters")
+        selected_implementations = parse_subset(
+            args.implementations, ("default", "original"), "--implementations"
+        )
         manifest_path = args.manifest.resolve()
         _, records = load_manifest(manifest_path)
         records = [
             record
             for record in records
             if record.geometry in selected_geometries
-            and (record.geometry == "reference" or record.limiter in selected_limiters)
+            and (record.geometry == "reference" or record.implementation in selected_implementations)
         ]
         if not records:
-            raise AnalysisError("The selected geometry and limiter filters match no manifest cases.")
+            raise AnalysisError("The selected geometry and implementation filters match no manifest cases.")
 
         output_directory = (args.output_dir or manifest_path.parent / "analysis").resolve()
         output_directory.mkdir(parents=True, exist_ok=True)
@@ -573,6 +676,17 @@ def main() -> int:
             save_convergence_plot(results, "flat", output_directory / "flat_convergence.png")
         if "slanted" in selected_geometries:
             save_convergence_plot(results, "slanted", output_directory / "slanted_convergence.png")
+            for implementation in sorted(
+                {result.implementation for result in results if result.profiles}
+            ):
+                finest = max(
+                    (r for r in results if r.profiles and r.implementation == implementation),
+                    key=lambda item: item.resolution,
+                )
+                save_profile_plot(
+                    finest,
+                    output_directory / f"slanted_{implementation}_velocity_profiles.png",
+                )
         if skipped_cases:
             print(f"\nSkipped {len(skipped_cases)} incomplete case(s): {', '.join(skipped_cases)}")
         for summary_path in summary_paths:

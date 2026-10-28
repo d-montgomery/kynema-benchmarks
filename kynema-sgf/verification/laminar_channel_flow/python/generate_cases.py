@@ -23,7 +23,7 @@ DEFAULT_OUTPUT_DIR = CASE_ROOT / "cases"
 IB_RESOLUTIONS = (32, 64, 128, 256, 512, 1024)
 REFERENCE_RESOLUTIONS = (32, 64, 128, 256)
 IB_GEOMETRIES = ("flat", "slanted")
-IB_LIMITERS = ("default", "original")
+IB_IMPLEMENTATIONS = ("default", "original")
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class CaseDefinition:
 
     name: str
     geometry: str
-    limiter: str | None
+    implementation: str | None
     resolution: int
     base_input: str
     input_file: str
@@ -76,8 +76,8 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Comma-separated subset of flat, slanted, reference (default: all).",
     )
     parser.add_argument(
-        "--limiters",
-        default=",".join(IB_LIMITERS),
+        "--implementations",
+        default=",".join(IB_IMPLEMENTATIONS),
         help="Comma-separated subset of default, original for IB cases (default: all).",
     )
     parser.add_argument(
@@ -108,7 +108,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def build_case_definitions(
-    geometries: tuple[str, ...], limiters: tuple[str, ...], ib_resolutions: tuple[int, ...]
+    geometries: tuple[str, ...], implementations: tuple[str, ...], ib_resolutions: tuple[int, ...]
 ) -> list[CaseDefinition]:
     """Return the selected canonical run matrix."""
 
@@ -127,7 +127,7 @@ def build_case_definitions(
                     CaseDefinition(
                         name=name,
                         geometry=geometry,
-                        limiter=None,
+                        implementation=None,
                         resolution=resolution,
                         base_input=base_inputs[geometry],
                         input_file="inputs.inp",
@@ -135,14 +135,14 @@ def build_case_definitions(
                 )
             continue
 
-        for limiter in limiters:
+        for implementation in implementations:
             for resolution in ib_resolutions:
-                name = f"{geometry}-{limiter}-n{resolution}"
+                name = f"{geometry}-{implementation}-n{resolution}"
                 definitions.append(
                     CaseDefinition(
                         name=name,
                         geometry=geometry,
-                        limiter=limiter,
+                        implementation=implementation,
                         resolution=resolution,
                         base_input=base_inputs[geometry],
                         input_file="inputs.inp",
@@ -165,7 +165,7 @@ def input_contents(case: CaseDefinition, case_directory: Path) -> str:
         f"FILE = {relative_geometry_base}",
         f"amr.n_cell = {case.resolution} 4 {z_cells}",
     ]
-    if case.limiter == "original":
+    if case.implementation == "original":
         lines.extend(
             (
                 "DragForcing.terrain_use_original_implementation = true",
@@ -223,9 +223,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         geometries = parse_csv_values(args.geometries, (*IB_GEOMETRIES, "reference"), "--geometries")
-        limiters = parse_csv_values(args.limiters, IB_LIMITERS, "--limiters")
+        implementations = parse_csv_values(
+            args.implementations, IB_IMPLEMENTATIONS, "--implementations"
+        )
         resolutions = parse_resolutions(args.resolutions) if args.resolutions else IB_RESOLUTIONS
-        cases = build_case_definitions(geometries, limiters, resolutions)
+        cases = build_case_definitions(geometries, implementations, resolutions)
 
         if not cases:
             parser.error("The selected options do not produce any cases.")
