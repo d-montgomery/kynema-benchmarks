@@ -5,8 +5,8 @@
 This verification case measures the spatial convergence of pressure-driven,
 single-phase laminar channel flow. It verifies both a flat channel aligned to
 cell faces and a $45^\circ$ slanted channel represented with
-`ChannelBuilder` immersed boundaries. A non-immersed-boundary channel-flow
-series provides a solver reference.
+`ChannelBuilder` immersed boundaries. Non-immersed-boundary channel-flow
+simulations provide a solver reference.
 
 ![Flat-channel geometry](figures/flat_geometry_setup.png)
 
@@ -31,13 +31,12 @@ The supported matrix is deliberately small and fixed:
 | --- | --- | --- | --- |
 | Flat IB | Cell-face-aligned channel | `default`, `original` | 32, 64, 128, 256, 512, 1024 |
 | Slanted IB | $45^\circ$ channel | `default`, `original` | 32, 64, 128, 256, 512, 1024 |
-| Reference | No immersed boundary | Not applicable | 32, 64, 128, 256 |
+| Flat Reference | No IB | N/A | 32, 64, 128, 256 |
 
-This produces 28 runs: 24 immersed-boundary cases and four references. The
-`default` configuration disables both drag limiters. `original` enables only
-the original drag limiter for comparison.
+This produces 28 runs: 24 IB cases and four references. The
+`default` configuration utilizes the current `DragForcing` implementation. `original` sets `DragForcing.terrain_use_original_implementation = true`.
 
-Shared solver settings are in [base.inp](cases/base.inp), and geometry-specific
+Shared solver settings are provided in [base.inp](cases/base.inp), and geometry-specific
 settings are in [flat-ib.inp](cases/flat-ib.inp),
 [flat-no-ib.inp](cases/flat-no-ib.inp), and [slanted.inp](cases/slanted.inp).
 Each generated case explicitly includes the shared settings first and its
@@ -47,12 +46,12 @@ drag-limiter switches explicitly.
 ## Analytical solution
 
 For channel height $H$, viscosity $\mu$, and axial body-force magnitude
-$F_\parallel$, the fully developed Poiseuille solution is
+$F$, the fully developed Poiseuille solution is
 
 $$
-u_\parallel(r) = U_{\max}\left(1 - \left(\frac{2r}{H}\right)^2\right),
+u(r) = U_{\max}\left(1 - \left(\frac{2r}{H}\right)^2\right),
 \qquad
-U_{\max} = \frac{F_\parallel H^2}{8\mu}.
+U_{\max} = \frac{F H^2}{8\mu}.
 $$
 
 For a centerline with unit tangent $\boldsymbol{t}=(t_x,t_z)$, the analyzer
@@ -97,22 +96,6 @@ The command writes solver directories and a `manifest.json` file directly in
 shared and geometry-specific inputs, then overrides `amr.n_cell` and, where
 needed, the drag-limiter settings.
 
-Inspect the planned matrix without writing files:
-
-```bash
-python python/generate_cases.py --dry-run
-```
-
-Target selected geometries, limiters, or immersed-boundary resolutions during
-development:
-
-```bash
-python python/generate_cases.py --geometries flat --limiters default --resolutions 64,128
-```
-
-The generator does not replace existing cases by default. Use `--overwrite`
-only after preserving any solver output that must be retained.
-
 ## Run the solver
 
 Run the Kynema-SGF executable from every generated case directory with its
@@ -120,7 +103,7 @@ Run the Kynema-SGF executable from every generated case directory with its
 
 ```bash
 cd cases/flat-default-n128
-kynema-sgf inputs.inp
+srun -N 1 --ntasks-per-node=50 kynema_sgf inputs.inp
 ```
 
 The solver must produce AMReX plot-file directories named `plt*` in the same
@@ -129,7 +112,7 @@ suffix, so each run may retain intermediate outputs and checkpoints.
 
 ## Analyze convergence
 
-After all selected solver jobs complete, run:
+After all jobs complete, run:
 
 ```bash
 python python/analyze.py
@@ -137,12 +120,7 @@ python python/analyze.py
 
 The analyzer reads `cases/manifest.json`, validates each required velocity
 component through `yt`, and loads each case's final plot file. Cases without
-a plot file are reported and skipped, while malformed completed cases still
-stop the analysis. Analyze a subset when iterating:
-
-```bash
-python python/analyze.py --geometries flat --limiters default
-```
+a plot file are reported and skipped.
 
 ## Outputs
 
@@ -159,15 +137,3 @@ Analysis results are written to `cases/analysis/` by default:
 For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how
 alignment, orientation, and limiter selection affect that behavior.
-
-## Troubleshooting
-
-- **The generator refuses to write:** Existing case directories or a manifest
-  were found. Preserve needed solver output, then rerun with `--overwrite`.
-- **No plot file was found:** Run the solver in the generated directory and
-  ensure at least one `plt*` output is present.
-- **Velocity-field selection fails:** Inspect the field list reported by the
-  analyzer. The selected Kynema-SGF build must expose one x, y, and z velocity
-  field recognizable by `yt`.
-- **No cells fall inside the error mask:** Verify that the input geometry,
-  output plot file, and manifest refer to the same case matrix.
