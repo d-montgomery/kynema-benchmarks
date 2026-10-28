@@ -149,9 +149,9 @@ For a converged steady solution, the reference series should demonstrate the
 expected second-order trend. The immersed-boundary series quantify how
 alignment, orientation, and implementation selection affect that behavior.
 
-## Results from Kynema-SGF v4.2.0
+## Results
 
-The default temporal implementation outperforms the original implementation for both flat and slanted channels. Both immersed-boundary implementations show $\mathcal{O}(h^{1/2})$ convergence for the flat and slanted channels, with the default implementation consistently producing lower errors. The flat channel without immersed boundaries converges at the expected $\mathcal{O}(h^2)$ rate.
+Results were produced with Kynema-SGF v4.2.0. The default temporal implementation outperforms the original implementation for both flat and slanted channels. Both immersed-boundary implementations show $\mathcal{O}(h^{1/2})$ convergence for the flat and slanted channels, with the default implementation consistently producing lower errors. The flat channel without immersed boundaries converges at the expected $\mathcal{O}(h^2)$ rate.
 
 ![Flat-channel results](figures/flat_convergence.png)
 
